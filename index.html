@@ -6,19 +6,20 @@
     <title>Geofence Checker</title>
 </head>
 <body>
+    <h1>Geofence Status</h1>
     <p id="status">Checking location...</p>
 
     <script>
+        // Define your geofence coordinates (example: center point and radius in meters)
         const GEOFENCE_CENTER = {
-            latitude: 20.7849981,
+            latitude: 20.7849981,  // Example: class coordinates
             longitude: 76.6784579
         };
-        const GEOFENCE_RADIUS = 10;
-        const CHECK_ATTEMPTS = 10;
-        const CHECK_INTERVAL = 1;
+        const GEOFENCE_RADIUS = 10; // 10 meters radius
 
+        // Function to calculate distance between two points (Haversine formula)
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
+            const R = 6371e3; // Earth's radius in meters
             const φ1 = lat1 * Math.PI/180;
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
@@ -28,9 +29,10 @@
                      Math.cos(φ1) * Math.cos(φ2) *
                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
+            return R * c; // Distance in meters
         }
 
+        // Function to check if user is in geofence
         function checkGeofence(userLat, userLon) {
             const distance = getDistance(
                 userLat, 
@@ -41,46 +43,38 @@
             return distance <= GEOFENCE_RADIUS;
         }
 
-        function getLocationPromise() {
-            return new Promise((resolve, reject) => {
+        // Get user's location and check geofence
+        function checkUserLocation() {
+            if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(
-                    position => resolve(position),
-                    error => reject(error),
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        
+                        const isInGeofence = checkGeofence(userLat, userLon);
+                        
+                        // Display result and add comment
+                        document.getElementById("status").innerHTML = 
+                            `${isInGeofence}<br><!-- ${isInGeofence ? 'User is inside geofence' : 'User is outside geofence'} -->`;
+                    },
+                    (error) => {
+                        document.getElementById("status").innerHTML = 
+                            "Error: Unable to get location<br><!-- Location access denied -->";
+                    },
                     {
-                        enableHighAccuracy: true,
+                        enableHighAccuracy: true, // For pinpoint accuracy
                         timeout: 5000,
                         maximumAge: 0
                     }
                 );
-            });
+            } else {
+                document.getElementById("status").innerHTML = 
+                    "Error: Geolocation not supported<br><!-- Browser incompatibility -->";
+            }
         }
 
-        async function checkUserLocationMultiple() {
-            if (!("geolocation" in navigator)) {
-                document.getElementById("status").innerHTML = "false";
-                return;
-            }
-
-            let lastResult = false;
-            
-            for (let i = 0; i < CHECK_ATTEMPTS; i++) {
-                try {
-                    const position = await getLocationPromise();
-                    const userLat = position.coords.latitude;
-                    const userLon = position.coords.longitude;
-                    lastResult = checkGeofence(userLat, userLon);
-                    
-                    await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
-                } catch (error) {
-                    document.getElementById("status").innerHTML = "false";
-                    return;
-                }
-            }
-
-            document.getElementById("status").innerHTML = lastResult;
-        }
-
-        window.onload = checkUserLocationMultiple;
+        // Run location check when page loads
+        window.onload = checkUserLocation;
     </script>
 </body>
 </html>
