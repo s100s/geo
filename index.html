@@ -6,18 +6,16 @@
     <title>Geofence Checker</title>
 </head>
 <body>
-    <h1>Geofence Status</h1>
     <p id="status">Checking location...</p>
-    <div id="results"></div>
 
     <script>
         const GEOFENCE_CENTER = {
             latitude: 20.7849981,
             longitude: 76.6784579
         };
-        const GEOFENCE_RADIUS = 10; // 10 meters
-        const CHECK_ATTEMPTS = 10;  // Number of checks
-        const CHECK_INTERVAL = 1;   // 1ms between checks (minimum practical interval)
+        const GEOFENCE_RADIUS = 10;
+        const CHECK_ATTEMPTS = 10;
+        const CHECK_INTERVAL = 1;
 
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
@@ -40,10 +38,7 @@
                 GEOFENCE_CENTER.latitude, 
                 GEOFENCE_CENTER.longitude
             );
-            return {
-                inside: distance <= GEOFENCE_RADIUS,
-                distance: distance.toFixed(2)
-            };
+            return distance <= GEOFENCE_RADIUS;
         }
 
         function getLocationPromise() {
@@ -62,43 +57,27 @@
 
         async function checkUserLocationMultiple() {
             if (!("geolocation" in navigator)) {
-                document.getElementById("status").innerHTML = 
-                    "Error: Geolocation not supported<br><!-- Browser incompatibility -->";
+                document.getElementById("status").innerHTML = "false";
                 return;
             }
 
-            let results = [];
-            let successfulChecks = 0;
+            let lastResult = false;
             
             for (let i = 0; i < CHECK_ATTEMPTS; i++) {
                 try {
                     const position = await getLocationPromise();
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
-                    const result = checkGeofence(userLat, userLon);
+                    lastResult = checkGeofence(userLat, userLon);
                     
-                    successfulChecks++;
-                    results.push(`Check ${i + 1}: ${result.inside ? 'Inside' : 'Outside'} (${result.distance}m)`);
-                    
-                    // Update status with current result
-                    document.getElementById("status").innerHTML = 
-                        `Latest: ${result.inside}<br><!-- Distance: ${result.distance}m -->`;
-                    
-                    // Show all results
-                    document.getElementById("results").innerHTML = 
-                        results.join('<br>');
-                    
-                    // Wait briefly before next check
                     await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
                 } catch (error) {
-                    results.push(`Check ${i + 1}: Failed - ${error.message}`);
-                    document.getElementById("results").innerHTML = 
-                        results.join('<br>');
+                    document.getElementById("status").innerHTML = "false";
+                    return;
                 }
             }
 
-            document.getElementById("status").innerHTML = 
-                `Completed ${successfulChecks}/${CHECK_ATTEMPTS} checks<br><!-- Final result -->`;
+            document.getElementById("status").innerHTML = lastResult;
         }
 
         window.onload = checkUserLocationMultiple;
