@@ -8,18 +8,19 @@
 <body>
     <h1>Geofence Status</h1>
     <p id="status">Checking location...</p>
+    <div id="results"></div>
 
     <script>
-        // Define your geofence coordinates (example: center point and radius in meters)
         const GEOFENCE_CENTER = {
-            latitude: 20.7849981,  // Example: class coordinates
+            latitude: 20.7849981,
             longitude: 76.6784579
         };
-        const GEOFENCE_RADIUS = 10; // 10 meters radius
+        const GEOFENCE_RADIUS = 10; // 10 meters
+        const CHECK_ATTEMPTS = 10;  // Number of checks
+        const CHECK_INTERVAL = 1;   // 1ms between checks (minimum practical interval)
 
-        // Function to calculate distance between two points (Haversine formula)
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth's radius in meters
+            const R = 6371e3;
             const φ1 = lat1 * Math.PI/180;
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
@@ -29,10 +30,9 @@
                      Math.cos(φ1) * Math.cos(φ2) *
                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c; // Distance in meters
+            return R * c;
         }
 
-        // Function to check if user is in geofence
         function checkGeofence(userLat, userLon) {
             const distance = getDistance(
                 userLat, 
@@ -40,41 +40,68 @@
                 GEOFENCE_CENTER.latitude, 
                 GEOFENCE_CENTER.longitude
             );
-            return distance <= GEOFENCE_RADIUS;
+            return {
+                inside: distance <= GEOFENCE_RADIUS,
+                distance: distance.toFixed(2)
+            };
         }
 
-        // Get user's location and check geofence
-        function checkUserLocation() {
-            if ("geolocation" in navigator) {
+        function getLocationPromise() {
+            return new Promise((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const userLat = position.coords.latitude;
-                        const userLon = position.coords.longitude;
-                        
-                        const isInGeofence = checkGeofence(userLat, userLon);
-                        
-                        // Display result and add comment
-                        document.getElementById("status").innerHTML = 
-                            `${isInGeofence}<br><!-- ${isInGeofence ? 'User is inside geofence' : 'User is outside geofence'} -->`;
-                    },
-                    (error) => {
-                        document.getElementById("status").innerHTML = 
-                            "Error: Unable to get location<br><!-- Location access denied -->";
-                    },
+                    position => resolve(position),
+                    error => reject(error),
                     {
-                        enableHighAccuracy: true, // For pinpoint accuracy
+                        enableHighAccuracy: true,
                         timeout: 5000,
                         maximumAge: 0
                     }
                 );
-            } else {
-                document.getElementById("status").innerHTML = 
-                    "Error: Geolocation not supported<br><!-- Browser incompatibility -->";
-            }
+            });
         }
 
-        // Run location check when page loads
-        window.onload = checkUserLocation;
+        async function checkUserLocationMultiple() {
+            if (!("geolocation" in navigator)) {
+                document.getElementById("status").innerHTML = 
+                    "Error: Geolocation not supported<br><!-- Browser incompatibility -->";
+                return;
+            }
+
+            let results = [];
+            let successfulChecks = 0;
+            
+            for (let i = 0; i < CHECK_ATTEMPTS; i++) {
+                try {
+                    const position = await getLocationPromise();
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+                    const result = checkGeofence(userLat, userLon);
+                    
+                    successfulChecks++;
+                    results.push(`Check ${i + 1}: ${result.inside ? 'Inside' : 'Outside'} (${result.distance}m)`);
+                    
+                    // Update status with current result
+                    document.getElementById("status").innerHTML = 
+                        `Latest: ${result.inside}<br><!-- Distance: ${result.distance}m -->`;
+                    
+                    // Show all results
+                    document.getElementById("results").innerHTML = 
+                        results.join('<br>');
+                    
+                    // Wait briefly before next check
+                    await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
+                } catch (error) {
+                    results.push(`Check ${i + 1}: Failed - ${error.message}`);
+                    document.getElementById("results").innerHTML = 
+                        results.join('<br>');
+                }
+            }
+
+            document.getElementById("status").innerHTML = 
+                `Completed ${successfulChecks}/${CHECK_ATTEMPTS} checks<br><!-- Final result -->`;
+        }
+
+        window.onload = checkUserLocationMultiple;
     </script>
 </body>
 </html>
