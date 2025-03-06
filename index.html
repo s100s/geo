@@ -1,88 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Geofence Checker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geofence Checker</title>
 </head>
 <body>
-  <h1>Geofence Status</h1>
-  <p id="status">Checking location...</p>
+    <p id="status">Checking location...</p>
 
-  <script>
-    // Define geofence center + radius
-    const GEOFENCE_CENTER = {
-      latitude: 20.7849981, 
-      longitude: 76.6784579
-    };
-    const GEOFENCE_RADIUS = 10; // meters
+    <script>
+        // Define your geofence coordinates (example: center point and radius in meters)
+        const GEOFENCE_CENTER = {
+            latitude: 20.7849981,  // Example: class coordinates
+            longitude: 76.6784579
+        };
+        const GEOFENCE_RADIUS = 10; // 10 meters radius
 
-    // Haversine distance function
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; // Earth radius in meters
-      const φ1 = lat1 * Math.PI/180;
-      const φ2 = lat2 * Math.PI/180;
-      const Δφ = (lat2-lat1) * Math.PI/180;
-      const Δλ = (lon2-lon1) * Math.PI/180;
+        // Function to calculate distance between two points (Haversine formula)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
 
-      const a = Math.sin(Δφ/2)**2 +
-                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c; // distance in meters
-    }
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                     Math.cos(φ1) * Math.cos(φ2) *
+                     Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // Distance in meters
+        }
 
-    function checkGeofence(userLat, userLon) {
-      const distance = getDistance(
-        userLat,
-        userLon,
-        GEOFENCE_CENTER.latitude,
-        GEOFENCE_CENTER.longitude
-      );
-      return {
-        distance: distance,
-        isInside: distance <= GEOFENCE_RADIUS
-      };
-    }
+        // Function to check if user is in geofence
+        function checkGeofence(userLat, userLon) {
+            const distance = getDistance(
+                userLat, 
+                userLon, 
+                GEOFENCE_CENTER.latitude, 
+                GEOFENCE_CENTER.longitude
+            );
+            return distance <= GEOFENCE_RADIUS;
+        }
 
-    function checkUserLocation() {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLat = position.coords.latitude;
-            const userLon = position.coords.longitude;
+        // Get user's location and check geofence
+        function checkUserLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        
+                        const isInGeofence = checkGeofence(userLat, userLon);
+                        
+                        // Display only true or false
+                        document.getElementById("status").innerHTML = isInGeofence;
+                    },
+                    (error) => {
+                        document.getElementById("status").innerHTML = "Error";
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                document.getElementById("status").innerHTML = "Error";
+            }
+        }
 
-            const result = checkGeofence(userLat, userLon);
-            const distanceFormatted = result.distance.toFixed(2);
-
-            // Display on page
-            document.getElementById("status").innerHTML =
-              `Distance from geofence center: ${distanceFormatted} meters<br>` +
-              `Status: ${result.isInside ? 'Inside' : 'Outside'} geofence`;
-
-            // POST MESSAGE to Thunkable Web Viewer
-            // "true" if inside, "false" if outside
-            window.postMessage(result.isInside ? "true" : "false");
-          },
-          (error) => {
-            document.getElementById("status").innerHTML =
-              "Error: Unable to get location<br><!-- Location access denied -->";
-
-            // Post an error message if you want
-            // window.postMessage("error");
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-      } else {
-        document.getElementById("status").innerHTML =
-          "Error: Geolocation not supported<br><!-- Browser incompatibility -->";
-      }
-    }
-
-    window.onload = checkUserLocation;
-  </script>
+        // Run location check when page loads
+        window.onload = checkUserLocation;
+    </script>
 </body>
 </html>
