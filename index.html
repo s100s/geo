@@ -32,7 +32,7 @@
             return R * c; // Distance in meters
         }
 
-        // Function to check if user is in geofence
+        // Function to check if user is in geofence and return distance
         function checkGeofence(userLat, userLon) {
             const distance = getDistance(
                 userLat, 
@@ -40,7 +40,10 @@
                 GEOFENCE_CENTER.latitude, 
                 GEOFENCE_CENTER.longitude
             );
-            return distance <= GEOFENCE_RADIUS;
+            return {
+                distance: distance,
+                isInside: distance <= GEOFENCE_RADIUS
+            };
         }
 
         // Get user's location and check geofence
@@ -51,18 +54,22 @@
                         const userLat = position.coords.latitude;
                         const userLon = position.coords.longitude;
                         
-                        const isInGeofence = checkGeofence(userLat, userLon);
+                        const result = checkGeofence(userLat, userLon);
+                        const distanceFormatted = result.distance.toFixed(2); // Round to 2 decimal places
                         
-                        // Display result and add comment
+                        // Display distance and status
                         document.getElementById("status").innerHTML = 
-                            `${isInGeofence}<br><!-- ${isInGeofence ? 'User is inside geofence' : 'User is outside geofence'} -->`;
+                            `Distance from geofence center: ${distanceFormatted} meters<br>` +
+                            `Status: ${result.isInside ? 'Inside' : 'Outside'} geofence<br>` +
+                            `<!-- User is ${distanceFormatted} meters from center, ` +
+                            `geofence radius is ${GEOFENCE_RADIUS} meters -->`;
                     },
                     (error) => {
                         document.getElementById("status").innerHTML = 
                             "Error: Unable to get location<br><!-- Location access denied -->";
                     },
                     {
-                        enableHighAccuracy: true, // For pinpoint accuracy
+                        enableHighAccuracy: true,
                         timeout: 5000,
                         maximumAge: 0
                     }
